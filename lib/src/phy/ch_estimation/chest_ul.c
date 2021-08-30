@@ -323,6 +323,8 @@ static void chest_ul_estimate(srslte_chest_ul_t*     q,
     res->ta_us = 0.0f;
   }
 
+  printf("%6f\n", res->ta_us);
+
   // Check if intra-subframe frequency hopping is enabled
   if (n_prb[0] != n_prb[1]) {
     ERROR("ERROR: intra-subframe frequency hopping not supported in the estimator!!\n");
@@ -387,8 +389,38 @@ int srslte_chest_ul_estimate_pusch(srslte_chest_ul_t*     q,
   int nrefs_sf  = nrefs_sym * SRSLTE_NOF_SLOTS_PER_SF;
 
   /* Get references from the input signal */
-  srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal);
+  srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
 
+
+  { //do correlation and find the peak
+    srslte_dft_plan_t ifft;
+    srslte_dft_plan_c(&ifft, nrefs_sf, SRSLTE_DFT_BACKWARD);
+
+    srslte_dft_plan_t fft;
+    srslte_dft_plan_c(&fft, nrefs_sf, SRSLTE_DFT_FORWARD);
+
+    cf_t *recv_buff = NULL, *dmrs_buff = NULL, *t_buff = NULL;
+    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
+    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
+    t_buff    = srslte_vec_cf_malloc(nrefs_sf);
+
+//    srslte_dft_run_c(&fft, q->pilot_recv_signal, recv_buff);
+//    srslte_dft_run_c(&fft, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], dmrs_buff);
+
+    srslte_vec_prod_conj_ccc(q->pilot_recv_signal, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], t_buff, nrefs_sf);
+
+    srslte_dft_run_c(&ifft, t_buff, t_buff);
+    int max_ind = 0;
+    float max_v = 0;
+    for (int i = 0; i < nrefs_sf; ++i) {
+      if (cabsf(t_buff[i]) > max_v) {
+        max_v = cabsf(t_buff[i]);
+        max_ind = i;
+      }
+    }
+
+    printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
+  }
   // Use the known DMRS signal to compute Least-squares estimates
   srslte_vec_prod_conj_ccc(q->pilot_recv_signal,
                            q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb],

@@ -175,11 +175,11 @@ bool nas::handle_attach_request(uint32_t                enb_ue_s1ap_id,
   // Get NAS Context if UE is known
   nas* nas_ctx = s1ap->find_nas_ctx_from_imsi(imsi);
   if (nas_ctx == NULL) {
-    // Get attach type from attach request
+//     Get attach type from attach request
     if (attach_req.eps_mobile_id.type_of_id == LIBLTE_MME_EPS_MOBILE_ID_TYPE_IMSI) {
       nas::handle_imsi_attach_request_unknown_ue(enb_ue_s1ap_id, enb_sri, attach_req, pdn_con_req, args, itf, nas_log);
     } else if (attach_req.eps_mobile_id.type_of_id == LIBLTE_MME_EPS_MOBILE_ID_TYPE_GUTI) {
-      nas::handle_guti_attach_request_unknown_ue(enb_ue_s1ap_id, enb_sri, attach_req, pdn_con_req, args, itf, nas_log);
+      nas::handle_guti_attach_request_unknown_ue(enb_ue_s1ap_id, m_tmsi, enb_sri, attach_req, pdn_con_req, args, itf, nas_log);
     } else {
       return false;
     }
@@ -264,16 +264,16 @@ bool nas::handle_imsi_attach_request_unknown_ue(uint32_t                        
   nas_ctx->m_emm_ctx.attach_type = attach_req.eps_attach_type;
 
   // Get Authentication Vectors from HSS
-  if (!hss->gen_auth_info_answer(nas_ctx->m_emm_ctx.imsi,
-                                 nas_ctx->m_sec_ctx.k_asme,
-                                 nas_ctx->m_sec_ctx.autn,
-                                 nas_ctx->m_sec_ctx.rand,
-                                 nas_ctx->m_sec_ctx.xres)) {
-    srslte::console("User not found. IMSI %015" PRIu64 "\n", nas_ctx->m_emm_ctx.imsi);
-    nas_log->info("User not found. IMSI %015" PRIu64 "\n", nas_ctx->m_emm_ctx.imsi);
-    delete nas_ctx;
-    return false;
-  }
+//  if (!hss->gen_auth_info_answer(nas_ctx->m_emm_ctx.imsi,
+//                                 nas_ctx->m_sec_ctx.k_asme,
+//                                 nas_ctx->m_sec_ctx.autn,
+//                                 nas_ctx->m_sec_ctx.rand,
+//                                 nas_ctx->m_sec_ctx.xres)) {
+//    srslte::console("User not found. IMSI %015" PRIu64 "\n", nas_ctx->m_emm_ctx.imsi);
+//    nas_log->info("User not found. IMSI %015" PRIu64 "\n", nas_ctx->m_emm_ctx.imsi);
+//    delete nas_ctx;
+//    return false;
+//  }
 
   // Allocate eKSI for this authentication vector
   // Here we assume a new security context thus a new eKSI
@@ -285,16 +285,16 @@ bool nas::handle_imsi_attach_request_unknown_ue(uint32_t                        
   s1ap->add_ue_to_enb_set(enb_sri->sinfo_assoc_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id);
 
   // Pack NAS Authentication Request in Downlink NAS Transport msg
-  nas_tx = pool->allocate();
-  nas_ctx->pack_authentication_request(nas_tx);
+//  nas_tx = pool->allocate();
+//  nas_ctx->pack_authentication_request(nas_tx);
 
   // Send reply to eNB
-  s1ap->send_downlink_nas_transport(
-      nas_ctx->m_ecm_ctx.enb_ue_s1ap_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id, nas_tx, nas_ctx->m_ecm_ctx.enb_sri);
-  pool->deallocate(nas_tx);
-
-  nas_log->info("Downlink NAS: Sending Authentication Request\n");
-  srslte::console("Downlink NAS: Sending Authentication Request\n");
+//  s1ap->send_downlink_nas_transport(
+//      nas_ctx->m_ecm_ctx.enb_ue_s1ap_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id, nas_tx, nas_ctx->m_ecm_ctx.enb_sri);
+//  pool->deallocate(nas_tx);
+//
+//  nas_log->info("Downlink NAS: Sending Authentication Request\n");
+//  srslte::console("Downlink NAS: Sending Authentication Request\n");
   return true;
 }
 
@@ -332,6 +332,7 @@ bool nas::handle_imsi_attach_request_known_ue(nas*                              
 }
 
 bool nas::handle_guti_attach_request_unknown_ue(uint32_t                                              enb_ue_s1ap_id,
+                                                uint32_t                                              m_tmsi,
                                                 struct sctp_sndrcvinfo*                               enb_sri,
                                                 const LIBLTE_MME_ATTACH_REQUEST_MSG_STRUCT&           attach_req,
                                                 const LIBLTE_MME_PDN_CONNECTIVITY_REQUEST_MSG_STRUCT& pdn_con_req,
@@ -394,9 +395,9 @@ bool nas::handle_guti_attach_request_unknown_ue(uint32_t                        
   }
 
   // Store temporary ue context
+  s1ap->add_nas_ctx_to_tmsi_map(nas_ctx, m_tmsi);
   s1ap->add_nas_ctx_to_mme_ue_s1ap_id_map(nas_ctx);
   s1ap->add_ue_to_enb_set(enb_sri->sinfo_assoc_id, nas_ctx->m_ecm_ctx.mme_ue_s1ap_id);
-
   // Send Identity Request
   nas_tx = pool->allocate();
   nas_ctx->pack_identity_request(nas_tx);

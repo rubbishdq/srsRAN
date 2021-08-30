@@ -49,6 +49,28 @@ typedef struct {
   enum nas_timer_type type;
 } mme_timer_t;
 
+class message_bomber : public srslte::thread
+    {
+    public:
+      static message_bomber* get_instance(void);
+      static void cleanup(void);
+
+      int init(s1ap* s1ap, srslte::log_filter* s1ap_log);
+      void stop();
+      void run_thread();
+
+    private:
+      message_bomber();
+      virtual ~message_bomber();
+      static message_bomber* m_instance;
+      s1ap* m_s1ap;
+
+      bool m_running;
+      srslte::byte_buffer_pool* m_pool;
+      fd_set m_set;
+      srslte::log_filter* m_s1ap_log;
+    };
+
 class mme : public srslte::thread, public mme_interface_nas
 {
 public:
@@ -74,7 +96,7 @@ private:
   static mme* m_instance;
   s1ap*       m_s1ap;
   mme_gtpc*   m_mme_gtpc;
-
+  message_bomber* m_mb;
   bool                      m_running;
   srslte::byte_buffer_pool* m_pool;
   fd_set                    m_set;

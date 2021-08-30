@@ -1055,27 +1055,28 @@ bool s1ap::ue::send_ulnastransport(srslte::unique_byte_buffer_t pdu)
 
 bool s1ap::ue::send_uectxtreleaserequest(const cause_c& cause)
 {
-  if (!s1ap_ptr->mme_connected) {
-    return false;
-  }
-
-  if (!ctxt.mme_ue_s1ap_id_present) {
-    s1ap_log->error("Cannot send UE context release request without a MME-UE-S1AP-Id allocated.\n");
-    return false;
-  }
-
-  release_requested = true;
-  s1ap_pdu_c tx_pdu;
-  tx_pdu.set_init_msg().load_info_obj(ASN1_S1AP_ID_UE_CONTEXT_RELEASE_REQUEST);
-  ue_context_release_request_ies_container& container =
-      tx_pdu.init_msg().value.ue_context_release_request().protocol_ies;
-  container.mme_ue_s1ap_id.value = ctxt.mme_ue_s1ap_id;
-  container.enb_ue_s1ap_id.value = ctxt.enb_ue_s1ap_id;
-
-  // Cause
-  container.cause.value = cause;
-
-  return s1ap_ptr->sctp_send_s1ap_pdu(tx_pdu, ctxt.rnti, "UEContextReleaseRequest");
+  return true;
+//  if (!s1ap_ptr->mme_connected) {
+//    return false;
+//  }
+//
+//  if (!ctxt.mme_ue_s1ap_id_present) {
+//    s1ap_log->error("Cannot send UE context release request without a MME-UE-S1AP-Id allocated.\n");
+//    return false;
+//  }
+//
+//  release_requested = true;
+//  s1ap_pdu_c tx_pdu;
+//  tx_pdu.set_init_msg().load_info_obj(ASN1_S1AP_ID_UE_CONTEXT_RELEASE_REQUEST);
+//  ue_context_release_request_ies_container& container =
+//      tx_pdu.init_msg().value.ue_context_release_request().protocol_ies;
+//  container.mme_ue_s1ap_id.value = ctxt.mme_ue_s1ap_id;
+//  container.enb_ue_s1ap_id.value = ctxt.enb_ue_s1ap_id;
+//
+//  // Cause
+//  container.cause.value = cause;
+//
+//  return s1ap_ptr->sctp_send_s1ap_pdu(tx_pdu, ctxt.rnti, "UEContextReleaseRequest");
 }
 
 bool s1ap::ue::send_uectxtreleasecomplete()

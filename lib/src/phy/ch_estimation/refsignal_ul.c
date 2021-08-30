@@ -263,11 +263,16 @@ static void arg_r_uv_mprb(float* arg, uint32_t M_sc, uint32_t u, uint32_t v)
 /* Computes argument of r_u_v signal */
 static void compute_r_uv_arg(srslte_refsignal_ul_t* q, uint32_t nof_prb, uint32_t u, uint32_t v)
 {
+  //M_SC^RS=N_SC^RB
   if (nof_prb == 1) {
     srslte_refsignal_r_uv_arg_1prb(q->tmp_arg, u);
-  } else if (nof_prb == 2) {
+  }
+  //M_SC^RS=2*N_SC^RB
+  else if (nof_prb == 2) {
     arg_r_uv_2prb(q->tmp_arg, u);
-  } else {
+  }
+  //M_SC^RS>=3*N_SC^RB
+  else {
     arg_r_uv_mprb(q->tmp_arg, SRSLTE_NRE * nof_prb, u, v);
   }
 }

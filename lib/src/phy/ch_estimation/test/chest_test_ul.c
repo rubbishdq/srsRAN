@@ -213,7 +213,7 @@ int main(int argc, char** argv)
                   // Estimate channel
                   srslte_chest_ul_estimate_pusch(&est, &ul_sf, &cfg, input, &res);
 
-                  // Compute MSE
+                  // Compute MSE/
                   float mse = 0;
                   for (i = 0; i < num_re; i++) {
                     mse += cabsf(ce[i] - h[i]);

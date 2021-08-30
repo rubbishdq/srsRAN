@@ -60,6 +60,7 @@ public:
   virtual uint32_t allocate_m_tmsi(uint64_t imsi)                                            = 0;
   virtual uint32_t get_next_mme_ue_s1ap_id()                                                 = 0;
   virtual bool     add_nas_ctx_to_imsi_map(nas* nas_ctx)                                     = 0;
+  virtual bool     add_nas_ctx_to_tmsi_map(nas* nas_ctx, uint32_t tmsi)                                     = 0;
   virtual bool     add_nas_ctx_to_mme_ue_s1ap_id_map(nas* nas_ctx)                           = 0;
   virtual bool     add_ue_to_enb_set(int32_t enb_assoc, uint32_t mme_ue_s1ap_id)             = 0;
   virtual bool     release_ue_ecm_ctx(uint32_t mme_ue_s1ap_id)                               = 0;

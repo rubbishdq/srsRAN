@@ -274,8 +274,8 @@ void s1ap::handle_initiating_message(const asn1::s1ap::init_msg_s& msg, struct s
       m_s1ap_nas_transport->handle_uplink_nas_transport(msg.value.ul_nas_transport(), enb_sri);
       break;
     case init_msg_type_opts_t::ue_context_release_request:
-      m_s1ap_log->info("Received UE Context Release Request Message.\n");
-      m_s1ap_ctx_mngmt_proc->handle_ue_context_release_request(msg.value.ue_context_release_request(), enb_sri);
+      m_s1ap_log->info("Received UE Context Release Request Message. Not to do it.\n");
+//      m_s1ap_ctx_mngmt_proc->handle_ue_context_release_request(msg.value.ue_context_release_request(), enb_sri);
       break;
     default:
       m_s1ap_log->error("Unhandled S1AP intiating message: %s\n", msg.value.type().to_string().c_str());
@@ -364,6 +364,27 @@ bool s1ap::add_nas_ctx_to_imsi_map(nas* nas_ctx)
   }
   m_imsi_to_nas_ctx.insert(std::pair<uint64_t, nas*>(nas_ctx->m_emm_ctx.imsi, nas_ctx));
   m_s1ap_log->debug("Saved UE context corresponding to IMSI %015" PRIu64 "\n", nas_ctx->m_emm_ctx.imsi);
+  return true;
+}
+
+bool s1ap::add_nas_ctx_to_tmsi_map(nas* nas_ctx, uint32_t tmsi)
+{
+  std::map<uint32_t, nas*>::iterator ctx_it = m_tmsi_to_nas_ctx.find(tmsi);
+  if (ctx_it != m_tmsi_to_nas_ctx.end()) {
+    m_s1ap_log->debug("UE Context already exists. M-TMSI %015" PRIu32 ", erasing... \n", tmsi);
+    m_tmsi_to_nas_ctx.erase(tmsi);
+    m_mme_ue_s1ap_id_to_nas_ctx.erase(nas_ctx->m_ecm_ctx.mme_ue_s1ap_id);
+  }
+  if (nas_ctx->m_ecm_ctx.mme_ue_s1ap_id != 0) {
+    std::map<uint32_t, nas*>::iterator ctx_it2 = m_mme_ue_s1ap_id_to_nas_ctx.find(nas_ctx->m_ecm_ctx.mme_ue_s1ap_id);
+    if (ctx_it2 != m_mme_ue_s1ap_id_to_nas_ctx.end() && ctx_it2->second != nas_ctx) {
+      m_s1ap_log->error("Context identified with M-TMSI does not match context identified by MME UE S1AP Id.\n");
+      return false;
+    }
+  }
+  m_tmsi_to_nas_ctx.insert(std::pair<uint64_t, nas*>(tmsi, nas_ctx));
+  m_s1ap_log->debug("Saved UE context corresponding to M-TMSI %015" PRIu32 "\n", tmsi);
+  m_s1ap_log->debug("guti_map size:%015" PRIu32 "\n", uint32_t (m_tmsi_to_nas_ctx.size()));
   return true;
 }
 

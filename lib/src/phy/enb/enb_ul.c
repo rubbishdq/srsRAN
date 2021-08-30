@@ -170,6 +170,7 @@ void srslte_enb_ul_rem_rnti(srslte_enb_ul_t* q, uint16_t rnti)
 
 void srslte_enb_ul_fft(srslte_enb_ul_t* q)
 {
+//  printf("srslte_enb_ul_fft called.\n");
   srslte_ofdm_rx_sf(&q->fft);
 }
 

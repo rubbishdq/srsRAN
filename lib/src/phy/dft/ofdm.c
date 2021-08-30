@@ -155,6 +155,7 @@ static int ofdm_init_mbsfn_(srslte_ofdm_t* q, srslte_ofdm_cfg_t* cfg, srslte_dft
 
     // Create Tx/Rx plans
     if (dir == SRSLTE_DFT_FORWARD) {
+      printf("FFT points:%d\n.", symbol_sz);
       if (srslte_dft_plan_guru_c(&q->fft_plan_sf[slot],
                                  symbol_sz,
                                  dir,

@@ -81,6 +81,7 @@ public:
   void       get_enb_ctx(uint16_t sctp_stream);
 
   bool add_nas_ctx_to_imsi_map(nas* nas_ctx);
+  bool add_nas_ctx_to_tmsi_map(nas* nas_ctx, uint32_t tmsi);
   bool add_nas_ctx_to_mme_ue_s1ap_id_map(nas* nas_ctx);
   bool add_ue_to_enb_set(int32_t enb_assoc, uint32_t mme_ue_s1ap_id);
 
@@ -106,6 +107,8 @@ public:
   std::map<uint32_t, uint64_t>   m_tmsi_to_imsi;
   std::map<uint16_t, enb_ctx_t*> m_active_enbs;
 
+  std::map<uint64_t, nas*> m_imsi_to_nas_ctx;
+  std::map<uint32_t, nas*> m_tmsi_to_nas_ctx;
   // Interfaces
   virtual bool send_initial_context_setup_request(uint64_t imsi, uint16_t erab_to_setup);
   virtual bool send_ue_context_release_command(uint32_t mme_ue_s1ap_id);
@@ -131,7 +134,7 @@ private:
   std::map<int32_t, uint16_t>            m_sctp_to_enb_id;
   std::map<int32_t, std::set<uint32_t> > m_enb_assoc_to_ue_ids;
 
-  std::map<uint64_t, nas*> m_imsi_to_nas_ctx;
+
   std::map<uint32_t, nas*> m_mme_ue_s1ap_id_to_nas_ctx;
 
   uint32_t m_next_mme_ue_s1ap_id;
