@@ -396,12 +396,12 @@ int srslte_chest_ul_estimate_pusch(srslte_chest_ul_t*     q,
     srslte_dft_plan_t ifft;
     srslte_dft_plan_c(&ifft, nrefs_sf, SRSLTE_DFT_BACKWARD);
 
-    srslte_dft_plan_t fft;
-    srslte_dft_plan_c(&fft, nrefs_sf, SRSLTE_DFT_FORWARD);
-
-    cf_t *recv_buff = NULL, *dmrs_buff = NULL, *t_buff = NULL;
-    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
-    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
+//    srslte_dft_plan_t fft;
+//    srslte_dft_plan_c(&fft, nrefs_sf, SRSLTE_DFT_FORWARD);
+//    *recv_buff = NULL, *dmrs_buff = NULL,
+    cf_t *t_buff = NULL;
+//    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
+//    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
     t_buff    = srslte_vec_cf_malloc(nrefs_sf);
 
 //    srslte_dft_run_c(&fft, q->pilot_recv_signal, recv_buff);
@@ -420,6 +420,7 @@ int srslte_chest_ul_estimate_pusch(srslte_chest_ul_t*     q,
     }
 
     printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
+    printf("ToF:%lf us\n", 2*66.67*(float)max_ind/(float)nrefs_sf);
   }
   // Use the known DMRS signal to compute Least-squares estimates
   srslte_vec_prod_conj_ccc(q->pilot_recv_signal,

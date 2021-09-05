@@ -24,7 +24,7 @@ find_package(SCTP REQUIRED)
 # COMMON TESTS
 #######################################################################
 add_executable(byte_buffer_queue_test byte_buffer_queue_test.cc)
-target_link_libraries(byte_buffer_queue_test srslte_phy srslte_common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(byte_buffer_queue_test srslte_phy srslte_common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} -static-libgcc -static-libstdc++)
 add_test(byte_buffer_queue_test byte_buffer_queue_test)
 
 add_executable(test_eia1 test_eia1.cc)
