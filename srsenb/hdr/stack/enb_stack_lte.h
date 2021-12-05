@@ -108,6 +108,8 @@ public:
   void add_gtpu_s1u_socket_handler(int fd) override;
   void add_gtpu_m1u_socket_handler(int fd) override;
 
+  void set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map);
+
 private:
   static const int STACK_MAIN_THREAD_PRIO = 4;
   // thread loop
@@ -158,6 +160,9 @@ private:
   bool started = false;
 
   srslte::block_queue<stack_metrics_t> pending_stack_metrics;
+
+  std::weak_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map;
 };
 
 } // namespace srsenb

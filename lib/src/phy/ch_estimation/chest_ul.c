@@ -323,7 +323,7 @@ static void chest_ul_estimate(srslte_chest_ul_t*     q,
     res->ta_us = 0.0f;
   }
 
-  printf("%6f\n", res->ta_us);
+  //printf("%6f\n", res->ta_us);
 
   // Check if intra-subframe frequency hopping is enabled
   if (n_prb[0] != n_prb[1]) {
@@ -391,6 +391,43 @@ int srslte_chest_ul_estimate_pusch(srslte_chest_ul_t*     q,
   /* Get references from the input signal */
   srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
 
+  // Use the known DMRS signal to compute Least-squares estimates
+  srslte_vec_prod_conj_ccc(q->pilot_recv_signal,
+                           q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb],
+                           q->pilot_estimates,
+                           nrefs_sf);
+
+  // Estimate
+  chest_ul_estimate(q, SRSLTE_NOF_SLOTS_PER_SF, nrefs_sym, 1, cfg->meas_ta_en, true, cfg->grant.n_prb, res);
+
+  return 0;
+}
+
+int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
+                                            srslte_ul_sf_cfg_t*    sf,
+                                            srslte_pusch_cfg_t*    cfg,
+                                            cf_t*                  input,
+                                            srslte_chest_ul_res_t* res,
+                                            float*                 tof)
+{
+  if (!q->dmrs_signal_configured) {
+    ERROR("Error must call srslte_chest_ul_set_cfg() before using the UL estimator\n");
+    return SRSLTE_ERROR;
+  }
+
+  uint32_t nof_prb = cfg->grant.L_prb;
+
+  if (!srslte_dft_precoding_valid_prb(nof_prb)) {
+    ERROR("Error invalid nof_prb=%d\n", nof_prb);
+    return SRSLTE_ERROR_INVALID_INPUTS;
+  }
+
+  int nrefs_sym = nof_prb * SRSLTE_NRE;
+  int nrefs_sf  = nrefs_sym * SRSLTE_NOF_SLOTS_PER_SF;
+
+  /* Get references from the input signal */
+  srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
+
 
   { //do correlation and find the peak
     srslte_dft_plan_t ifft;
@@ -419,8 +456,11 @@ int srslte_chest_ul_estimate_pusch(srslte_chest_ul_t*     q,
       }
     }
 
-    printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
-    printf("ToF:%lf us\n", 2*66.67*(float)max_ind/(float)nrefs_sf);
+    //printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
+    //printf("ToF:%lf us\n", 2*66.67*(float)max_ind/(float)nrefs_sf);
+    if (tof != NULL) {
+      *tof = 2*66.67*(float)max_ind/(float)nrefs_sf;
+    }
   }
   // Use the known DMRS signal to compute Least-squares estimates
   srslte_vec_prod_conj_ccc(q->pilot_recv_signal,

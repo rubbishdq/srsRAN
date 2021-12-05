@@ -83,7 +83,16 @@ void sf_worker::init(phy_common* phy_, srslte::log* log_h_)
     auto q = new cc_worker();
 
     // Initialise
+    q->set_map_ptr(rnti_imsi_map, rnti_m_tmsi_map);
     q->init(phy, log_h, i);
+    if (!rnti_imsi_map.lock())
+    {
+      printf("!rnti_imsi_map.lock()\n");
+    }
+    if (!rnti_m_tmsi_map.lock())
+    {
+      printf("!rnti_m_tmsi_map.lock()\n");
+    }
 
     // Create unique pointer
     cc_workers.push_back(std::unique_ptr<cc_worker>(q));
@@ -141,6 +150,7 @@ int sf_worker::pregen_sequences(uint16_t rnti)
 
 int sf_worker::add_rnti(uint16_t rnti, uint32_t cc_idx)
 {
+  //std::cout << "sf_worker::add_rnti(): " << rnti << std::endl;
   int ret = SRSLTE_ERROR;
 
   if (cc_idx < cc_workers.size()) {
@@ -348,6 +358,12 @@ int sf_worker::read_pucch_d(uint32_t cc_idx, cf_t* pdsch_d)
 sf_worker::~sf_worker()
 {
   srslte_softbuffer_tx_free(&temp_mbsfn_softbuffer);
+}
+
+void sf_worker::set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map)
+{
+  this->rnti_imsi_map = rnti_imsi_map;
+  this->rnti_m_tmsi_map = rnti_m_tmsi_map;
 }
 
 } // namespace srsenb

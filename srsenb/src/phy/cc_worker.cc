@@ -194,6 +194,7 @@ int cc_worker::pregen_sequences(uint16_t rnti)
 int cc_worker::add_rnti(uint16_t rnti)
 {
   std::unique_lock<std::mutex> lock(mutex);
+  //std::cout << "cc_worker::add_rnti(): " << rnti << std::endl;
 
   // Create user unless already exists
   if (ue_db.count(rnti) == 0) {
@@ -321,12 +322,91 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
   // Run PUSCH decoder
   ul_cfg.pusch.softbuffers.rx = ul_grant.softbuffer_rx;
   pusch_res.data              = ul_grant.data;
+  float tof;
   if (pusch_res.data) {
-    if (srslte_enb_ul_get_pusch(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res)) {
+    if (srslte_enb_ul_get_pusch_with_tof(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof)) {
       Error("Decoding PUSCH for RNTI %x\n", rnti);
       return;
     }
   }
+  
+  // print tof, rnti and imsi/m-tmsi data
+  /*
+  auto rnti_imsi_map_sp = rnti_imsi_map.lock();
+  auto rnti_m_tmsi_map_sp = rnti_m_tmsi_map.lock();
+  printf("----------\n");
+  printf("ToF: %lf us\n", (double)tof);
+  printf("RNTI: %d\n", rnti);
+  if (rnti_imsi_map_sp && rnti_m_tmsi_map_sp)
+  {
+    std::lock_guard<std::mutex> imsi_lg(rnti_imsi_map_sp->mtx);
+    auto imsi_it = rnti_imsi_map_sp->map.find(rnti);
+    if (imsi_it != rnti_imsi_map_sp->map.end())
+    {
+      printf("IMSI: %015ld\n", imsi_it->second);
+    }
+    else
+    {
+      std::lock_guard<std::mutex> m_tmsi_lg(rnti_m_tmsi_map_sp->mtx);
+      auto m_tmsi_it = rnti_m_tmsi_map_sp->map.find(rnti);
+      if (m_tmsi_it != rnti_m_tmsi_map_sp->map.end())
+      {
+        printf("M-TMSI: %x\n", m_tmsi_it->second);
+      }
+      else
+      {
+        printf("IMSI and M-TMSI record not found!\n");
+      }
+    }
+  }
+  else
+  {
+    printf("IMSI or M-TMSI map not initialized.\n");
+  }
+  printf("----------\n");
+  */
+  uint64_t imsi = 0;
+  uint32_t m_tmsi = 0;
+  auto rnti_imsi_map_sp = rnti_imsi_map.lock();
+  auto rnti_m_tmsi_map_sp = rnti_m_tmsi_map.lock();
+  if (rnti_imsi_map_sp && rnti_m_tmsi_map_sp)
+  {
+    std::lock_guard<std::mutex> imsi_lg(rnti_imsi_map_sp->mtx);
+    auto imsi_it = rnti_imsi_map_sp->map.find(rnti);
+    if (imsi_it != rnti_imsi_map_sp->map.end())
+    {
+      imsi = imsi_it->second;
+    }
+    else
+    {
+      std::lock_guard<std::mutex> m_tmsi_lg(rnti_m_tmsi_map_sp->mtx);
+      auto m_tmsi_it = rnti_m_tmsi_map_sp->map.find(rnti);
+      if (m_tmsi_it != rnti_m_tmsi_map_sp->map.end())
+      {
+        m_tmsi = m_tmsi_it->second;
+      }
+    }
+    if (imsi == 460010560117096)
+    {
+      printf("----------\n");
+      printf("ToF: %lf us\n", (double)tof);
+      printf("RNTI: %d\n", rnti);
+      if (imsi != 0)
+      {
+        printf("IMSI: %015ld\n", imsi);
+      }
+      else
+      {
+        printf("M-TMSI: %x\n", m_tmsi);
+      }
+      printf("\n");
+      printf("imsi_map.size(): %d\n", (int)rnti_imsi_map_sp->map.size());
+      printf("m_tmsi_map.size(): %d\n", (int)rnti_m_tmsi_map_sp->map.size());
+      printf("----------\n\n");
+    }
+  }
+  
+
   // Save PHICH scheduling for this user. Each user can have just 1 PUSCH dci per TTI
   ue_db[rnti]->phich_grant.n_prb_lowest = grant.n_prb_tilde[0];
   ue_db[rnti]->phich_grant.n_dmrs       = ul_grant.dci.n_dmrs;
@@ -650,6 +730,12 @@ int cc_worker::read_pucch_d(cf_t* pdsch_d)
   int nof_re = SRSLTE_PUCCH_MAX_BITS / 2;
   memcpy(pdsch_d, enb_ul.pucch.z_tmp, nof_re * sizeof(cf_t));
   return nof_re;
+}
+
+void cc_worker::set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map)
+{
+  this->rnti_imsi_map = rnti_imsi_map;
+  this->rnti_m_tmsi_map = rnti_m_tmsi_map;
 }
 
 } // namespace srsenb

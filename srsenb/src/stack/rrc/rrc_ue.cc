@@ -19,6 +19,8 @@
  *
  */
 
+#include "srsenb/hdr/stack/upper/pdcp.h"
+
 #include "srsenb/hdr/stack/rrc/rrc_ue.h"
 #include "srsenb/hdr/stack/rrc/mac_controller.h"
 #include "srsenb/hdr/stack/rrc/rrc_mobility.h"
@@ -176,6 +178,7 @@ void rrc::ue::parse_ul_dcch(uint32_t lcid, srslte::unique_byte_buffer_t pdu)
                  .ded_info_type.ded_info_nas()
                  .data(),
              pdu->N_bytes);
+      update_map_v2(pdu.get());
       parent->s1ap->write_pdu(rnti, std::move(pdu));
       break;
     case ul_dcch_msg_type_c::c1_c_::types::rrc_conn_recfg_complete:
@@ -1528,6 +1531,64 @@ int rrc::ue::get_ri(uint32_t m_ri, uint16_t* ri_idx)
   }
 
   return ret;
+}
+
+void rrc::ue::update_map_v1(srslte::byte_buffer_t* pdu)
+{
+  LIBLTE_MME_ATTACH_REQUEST_MSG_STRUCT           attach_req  = {};
+  uint64_t                                       pdu_imsi        = 0;
+  uint32_t                                       pdu_m_tmsi      = 0;
+  LIBLTE_ERROR_ENUM err = liblte_mme_unpack_attach_request_msg((LIBLTE_BYTE_MSG_STRUCT*)pdu, &attach_req);
+  if (err != LIBLTE_SUCCESS) {
+    printf("Error unpacking NAS attach request. Error: %s\n", liblte_error_text[err]);
+  }
+  else
+  {
+    // Get UE IMSI
+    if (attach_req.eps_mobile_id.type_of_id == LIBLTE_MME_EPS_MOBILE_ID_TYPE_IMSI) {
+      for (int i = 0; i <= 14; i++) {
+        pdu_imsi += attach_req.eps_mobile_id.imsi[i] * std::pow(10, 14 - i);
+      }
+      printf("NEW IMSI: %015d\n", (int)pdu_imsi);
+      auto rnti_imsi_map_sp = parent->rnti_imsi_map.lock();
+      if (rnti_imsi_map_sp) {
+        rnti_imsi_map_sp->insert(std::pair<uint16_t, uint64_t>(rnti, pdu_imsi));
+      }
+    } else if (attach_req.eps_mobile_id.type_of_id == LIBLTE_MME_EPS_MOBILE_ID_TYPE_GUTI) {
+      pdu_m_tmsi = attach_req.eps_mobile_id.guti.m_tmsi;
+      //imsi   = s1ap->find_imsi_from_m_tmsi(m_tmsi);
+      //printf("Attach request -- M-TMSI: 0x%x\n", m_tmsi);
+      printf("NEW M-TMSI: 0x%x\n", pdu_m_tmsi);
+      auto rnti_m_tmsi_map_sp = parent->rnti_m_tmsi_map.lock();
+      if (rnti_m_tmsi_map_sp) {
+        rnti_m_tmsi_map_sp->insert(std::pair<uint16_t, uint32_t>(rnti, pdu_m_tmsi));
+      }
+    } else {
+      printf("Unhandled Mobile Id type in attach request\n");
+      return;
+    }
+  }
+}
+
+void rrc::ue::update_map_v2(srslte::byte_buffer_t* pdu)
+{
+  LIBLTE_MME_ID_RESPONSE_MSG_STRUCT id_resp;
+
+  LIBLTE_ERROR_ENUM err = liblte_mme_unpack_identity_response_msg((LIBLTE_BYTE_MSG_STRUCT*)pdu, &id_resp);
+  if (err != LIBLTE_SUCCESS) {
+    return;
+  }
+
+  uint64_t pdu_imsi = 0;
+  for (int i = 0; i <= 14; i++) {
+    pdu_imsi += id_resp.mobile_id.imsi[i] * std::pow(10, 14 - i);
+  }
+
+  printf("NEW IMSI: %015ld\n", pdu_imsi);
+  auto rnti_imsi_map_sp = parent->rnti_imsi_map.lock();
+  if (rnti_imsi_map_sp) {
+    rnti_imsi_map_sp->insert(std::pair<uint16_t, uint64_t>(rnti, pdu_imsi));
+  }
 }
 
 } // namespace srsenb

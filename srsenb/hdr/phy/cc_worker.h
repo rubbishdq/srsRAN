@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "phy_common.h"
+#include "srslte/phy/utils/mutex_map.h"
 
 #define LOG_EXECTIME
 
@@ -61,6 +62,8 @@ public:
                srslte_mbsfn_cfg_t*                  mbsfn_cfg);
 
   uint32_t get_metrics(phy_metrics_t metrics[ENB_METRICS_MAX_USERS]);
+
+  void set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map);
 
 private:
   constexpr static float PUSCH_RL_SNR_DB_TH = 1.0f;
@@ -121,6 +124,9 @@ private:
   // Each worker keeps a local copy of the user database. Uses more memory but more efficient to manage concurrency
   std::map<uint16_t, ue*> ue_db;
   std::mutex              mutex;
+  
+  std::weak_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map;
 };
 
 } // namespace srsenb

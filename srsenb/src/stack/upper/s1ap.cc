@@ -433,6 +433,7 @@ bool s1ap::is_mme_connected()
 bool s1ap::connect_mme()
 {
   s1ap_log->info("Connecting to MME %s:%d\n", args.mme_addr.c_str(), MME_PORT);
+  printf("Connecting to MME %s:%d\n", args.mme_addr.c_str(), MME_PORT);
 
   // Init SCTP socket and bind it
   if (not srslte::net_utils::sctp_init_client(
@@ -1049,6 +1050,8 @@ bool s1ap::ue::send_ulnastransport(srslte::unique_byte_buffer_t pdu)
 
   // TAI
   container.tai.value = s1ap_ptr->tai;
+
+  
 
   return s1ap_ptr->sctp_send_s1ap_pdu(tx_pdu, ctxt.rnti, "UplinkNASTransport");
 }

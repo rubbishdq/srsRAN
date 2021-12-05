@@ -803,4 +803,10 @@ void rrc::tti_clock()
   }
 }
 
+void rrc::set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map)
+{
+  this->rnti_imsi_map = rnti_imsi_map;
+  this->rnti_m_tmsi_map = rnti_m_tmsi_map;
+}
+
 } // namespace srsenb

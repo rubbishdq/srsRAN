@@ -72,6 +72,8 @@ public:
 
   void radio_overflow() override{};
   void radio_failure() override{};
+  
+  void set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map);
 
 private:
   phy_cfg_mbsfn_t mbsfn_config = {};
@@ -89,6 +91,7 @@ private:
   std::vector<std::unique_ptr<srslte::log_filter> > log_vec;
   srslte::log*                                      log_h = nullptr;
 
+
   srslte::thread_pool    workers_pool;
   std::vector<sf_worker> workers;
   phy_common             workers_common;
@@ -98,6 +101,9 @@ private:
   bool initialized = false;
 
   srslte_prach_cfg_t prach_cfg = {};
+  
+  std::weak_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map;
 
   void parse_common_config(const phy_cfg_t& cfg);
 };

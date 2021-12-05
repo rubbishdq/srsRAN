@@ -57,6 +57,8 @@ public:
 
   uint32_t get_metrics(phy_metrics_t metrics[ENB_METRICS_MAX_USERS]);
 
+  void set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map);
+
 private:
   void work_imp() final;
 
@@ -75,6 +77,9 @@ private:
   std::vector<std::unique_ptr<cc_worker> > cc_workers;
 
   srslte_softbuffer_tx_t temp_mbsfn_softbuffer = {};
+
+  std::weak_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map;
 };
 
 } // namespace srsenb

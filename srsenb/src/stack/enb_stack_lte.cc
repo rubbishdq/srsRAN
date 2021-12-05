@@ -112,6 +112,7 @@ int enb_stack_lte::init(const stack_args_t& args_, const rrc_cfg_t& rrc_cfg_)
   rlc.init(&pdcp, &rrc, &mac, task_sched.get_timer_handler(), rlc_log);
   pdcp.init(&rlc, &rrc, &gtpu);
   rrc.init(rrc_cfg, phy, &mac, &rlc, &pdcp, &s1ap, &gtpu);
+  rrc.set_map_ptr(rnti_imsi_map, rnti_m_tmsi_map);
   if (s1ap.init(args.s1ap, &rrc, this) != SRSLTE_SUCCESS) {
     stack_log->error("Couldn't initialize S1AP\n");
     return SRSLTE_ERROR;
@@ -249,6 +250,12 @@ void enb_stack_lte::add_gtpu_m1u_socket_handler(int fd)
     gtpu_task_queue.push(std::bind(task_handler, std::move(pdu)));
   };
   rx_sockets->add_socket_pdu_handler(fd, gtpu_m1u_handler);
+}
+
+void enb_stack_lte::set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map)
+{
+  this->rnti_imsi_map = rnti_imsi_map;
+  this->rnti_m_tmsi_map = rnti_m_tmsi_map;
 }
 
 } // namespace srsenb

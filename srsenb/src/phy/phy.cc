@@ -118,6 +118,7 @@ int phy::init(const phy_args_t&            args,
 
   // Add workers to workers pool and start threads
   for (uint32_t i = 0; i < nof_workers; i++) {
+    workers[i].set_map_ptr(rnti_imsi_map, rnti_m_tmsi_map);
     workers[i].init(&workers_common, log_vec.at(i).get());
     workers_pool.init_worker(i, &workers[i], WORKERS_THREAD_PRIO);
   }
@@ -285,6 +286,12 @@ void phy::configure_mbsfn(sib_type2_s* sib2, sib_type13_r9_s* sib13, const mcch_
 void phy::start_plot()
 {
   workers[0].start_plot();
+}
+
+void phy::set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map)
+{
+  this->rnti_imsi_map = rnti_imsi_map;
+  this->rnti_m_tmsi_map = rnti_m_tmsi_map;
 }
 
 } // namespace srsenb

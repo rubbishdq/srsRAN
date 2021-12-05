@@ -150,6 +150,9 @@ private:
 
   srslte::byte_buffer_pool* pool = nullptr;
 
+  std::shared_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::shared_ptr<mutex_map_16_32> rnti_m_tmsi_map;
+
   all_args_t args    = {};
   bool       started = false;
 

@@ -33,6 +33,7 @@
 #include "srslte/common/stack_procedure.h"
 #include "srslte/common/task_scheduler.h"
 #include "srslte/common/timeout.h"
+#include "srslte/phy/utils/mutex_map.h"
 #include "srslte/interfaces/enb_interfaces.h"
 #include <map>
 #include <queue>
@@ -96,6 +97,8 @@ public:
   // rrc_interface_pdcp
   void write_pdu(uint16_t rnti, uint32_t lcid, srslte::unique_byte_buffer_t pdu) override;
 
+  void set_map_ptr(std::weak_ptr<mutex_map_16_64> rnti_imsi_map, std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map);
+
   uint32_t get_nof_users();
 
   // logging
@@ -128,6 +131,7 @@ public:
     }
   }
 
+
 private:
   class ue;
   // args
@@ -148,6 +152,7 @@ private:
   std::unique_ptr<freq_res_common_list>          pucch_res_list;
   std::map<uint16_t, std::unique_ptr<ue> >       users; // NOTE: has to have fixed addr
   std::map<uint32_t, asn1::rrc::paging_record_s> pending_paging;
+
 
   void     process_release_complete(uint16_t rnti);
   void     rem_user(uint16_t rnti);
@@ -183,6 +188,9 @@ private:
   asn1::rrc::sib_type7_s sib7;
 
   void rem_user_thread(uint16_t rnti);
+
+  std::weak_ptr<mutex_map_16_64> rnti_imsi_map;
+  std::weak_ptr<mutex_map_16_32> rnti_m_tmsi_map;
 
   std::mutex paging_mutex;
 };

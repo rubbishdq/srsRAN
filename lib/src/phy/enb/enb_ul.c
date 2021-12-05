@@ -285,3 +285,15 @@ int srslte_enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   return srslte_pusch_decode(&q->pusch, ul_sf, cfg, &q->chest_res, q->sf_symbols, res);
 }
+
+int srslte_enb_ul_get_pusch_with_tof(srslte_enb_ul_t*    q,
+                                     srslte_ul_sf_cfg_t* ul_sf,
+                                     srslte_pusch_cfg_t* cfg,
+                                     srslte_pusch_res_t* res,
+                                     float*              tof)
+{
+  srslte_chest_ul_estimate_pusch_with_tof(&q->chest, ul_sf, cfg, q->sf_symbols, &q->chest_res, tof);
+
+  return srslte_pusch_decode(&q->pusch, ul_sf, cfg, &q->chest_res, q->sf_symbols, res);
+}
+

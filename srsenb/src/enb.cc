@@ -64,6 +64,9 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
   pool_log.set_level(srslte::LOG_LEVEL_ERROR);
   pool->set_log(&pool_log);
 
+  rnti_imsi_map = std::make_shared<mutex_map_16_64>();
+  rnti_m_tmsi_map = std::make_shared<mutex_map_16_32>();
+
   // Create layers
   if (args.stack.type == "lte") {
     std::unique_ptr<enb_stack_lte> lte_stack(new enb_stack_lte(logger));
@@ -71,6 +74,7 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
       srslte::console("Error creating eNB stack.\n");
       return SRSLTE_ERROR;
     }
+    lte_stack->set_map_ptr(rnti_imsi_map, rnti_m_tmsi_map);
 
     std::unique_ptr<srslte::radio> lte_radio = std::unique_ptr<srslte::radio>(new srslte::radio(logger));
     if (!lte_radio) {
@@ -83,6 +87,7 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
       srslte::console("Error creating LTE PHY instance.\n");
       return SRSLTE_ERROR;
     }
+    lte_phy->set_map_ptr(rnti_imsi_map, rnti_m_tmsi_map);
 
     // Init Radio
     if (lte_radio->init(args.rf, lte_phy.get())) {

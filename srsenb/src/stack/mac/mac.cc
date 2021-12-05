@@ -520,6 +520,7 @@ void mac::rach_detected(uint32_t tti, uint32_t enb_cc_idx, uint32_t preamble_idx
     }
 
     // Register new user in RRC
+    printf("mac::rach_detected(): new user with rnti=%d added. \n", (int)rnti);
     rrc_h->add_user(rnti, ue_cfg);
 
     // Trigger scheduler RACH

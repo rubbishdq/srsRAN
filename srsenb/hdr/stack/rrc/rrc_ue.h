@@ -31,7 +31,8 @@ class rrc::ue
 public:
   class rrc_mobility;
 
-  ue(rrc* outer_rrc, uint16_t rnti, const sched_interface::ue_cfg_t& ue_cfg);
+  ue(rrc* outer_rrc, uint16_t rnti, 
+    const sched_interface::ue_cfg_t& ue_cfg);
   ~ue();
   bool is_connected();
   bool is_idle();
@@ -92,6 +93,9 @@ public:
   void send_dl_ccch(asn1::rrc::dl_ccch_msg_s* dl_ccch_msg);
   bool send_dl_dcch(const asn1::rrc::dl_dcch_msg_s* dl_dcch_msg,
                     srslte::unique_byte_buffer_t    pdu = srslte::unique_byte_buffer_t());
+
+  void update_map_v1(srslte::byte_buffer_t* pdu);
+  void update_map_v2(srslte::byte_buffer_t* pdu);
 
   uint16_t rnti   = 0;
   rrc*     parent = nullptr;
