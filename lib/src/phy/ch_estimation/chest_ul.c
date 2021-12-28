@@ -439,13 +439,37 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
     cf_t *t_buff = NULL;
 //    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
 //    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
-    t_buff    = srslte_vec_cf_malloc(nrefs_sf);
+    t_buff    = srslte_vec_cf_malloc(3*nrefs_sf);
 
 //    srslte_dft_run_c(&fft, q->pilot_recv_signal, recv_buff);
 //    srslte_dft_run_c(&fft, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], dmrs_buff);
+    
+    cf_t q_dmrs[3*nrefs_sf];
+    cf_t ref_dmrs[3*nrefs_sf];
+    
+    cf_t *q_point = q->pilot_recv_signal;
+    cf_t *ref_point = q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb];
+    
+    for(int i = 0; i < 3 * nrefs_sf; i++) {
+      if (i < nrefs_sf/2) {
+        q_dmrs[i] = q_point[i];
+        ref_dmrs[i] = ref_point[i];
+      }
+      else if (i > 5*nrefs_sf/2-2) {
+        q_dmrs[i] = q_point[i-2*nrefs_sf];
+        ref_dmrs[i] = ref_point[i-2*nrefs_sf];
+      }
+      else {
+        q_dmrs[i] = 0;
+        ref_dmrs[i] = 0;
+      }
+    }
+    // srslte_vec_prod_conj_ccc(q->pilot_recv_signal, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], t_buff, nrefs_sf);
+    cf_t *q_pointer = q_dmrs;
+    cf_t *ref_pointer = ref_dmrs;
 
-    srslte_vec_prod_conj_ccc(q->pilot_recv_signal, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], t_buff, nrefs_sf);
-
+    srslte_vec_prod_conj_ccc(q_pointer, ref_pointer, t_buff, 3*nrefs_sf);
+    
     srslte_dft_run_c(&ifft, t_buff, t_buff);
     int max_ind = 0;
     float max_v = 0;

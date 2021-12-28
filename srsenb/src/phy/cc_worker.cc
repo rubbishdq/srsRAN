@@ -390,6 +390,7 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
     {
       printf("----------\n");
       printf("ToF: %lf us\n", (double)tof);
+      printf("Distance: %lf m\n", 300*(double)tof);
       printf("RNTI: %d\n", rnti);
       if (imsi != 0)
       {
