@@ -318,17 +318,6 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
     Info("RETX: mcs=%d, old_tbs=%d pid=%d\n", ul_grant.dci.tb.mcs_idx, grant.tb.tbs, ul_pid);
   }
   phy->ue_db.set_last_ul_tb(rnti, cc_idx, ul_pid, grant.tb);
-
-  // Run PUSCH decoder
-  ul_cfg.pusch.softbuffers.rx = ul_grant.softbuffer_rx;
-  pusch_res.data              = ul_grant.data;
-  float tof;
-  if (pusch_res.data) {
-    if (srslte_enb_ul_get_pusch_with_tof(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof)) {
-      Error("Decoding PUSCH for RNTI %x\n", rnti);
-      return;
-    }
-  }
   
   // print tof, rnti and imsi/m-tmsi data
   /*
@@ -369,6 +358,7 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
   uint32_t m_tmsi = 0;
   auto rnti_imsi_map_sp = rnti_imsi_map.lock();
   auto rnti_m_tmsi_map_sp = rnti_m_tmsi_map.lock();
+  bool true_imsi = false;
   if (rnti_imsi_map_sp && rnti_m_tmsi_map_sp)
   {
     std::lock_guard<std::mutex> imsi_lg(rnti_imsi_map_sp->mtx);
@@ -388,6 +378,22 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
     }
     if (imsi == 460010560117096)
     {
+      true_imsi = true;
+    }
+  }
+  // Run PUSCH decoder, only save to file while true_imsi is true
+  ul_cfg.pusch.softbuffers.rx = ul_grant.softbuffer_rx;
+  pusch_res.data              = ul_grant.data;
+  float tof;
+  if (pusch_res.data) {
+    if (srslte_enb_ul_get_pusch_with_tof(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof, (int)true_imsi)) {
+      Error("Decoding PUSCH for RNTI %x\n", rnti);
+      return;
+    }
+  }
+  if (true_imsi)
+  {
+
       printf("----------\n");
       printf("ToF: %lf us\n", (double)tof);
       printf("Distance: %lf m\n", 300*(double)tof);
@@ -404,7 +410,10 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
       printf("imsi_map.size(): %d\n", (int)rnti_imsi_map_sp->map.size());
       printf("m_tmsi_map.size(): %d\n", (int)rnti_m_tmsi_map_sp->map.size());
       printf("----------\n\n");
-    }
+      // write data
+      FILE *fptr = fopen("/home/dqs/data/tof.txt", "a+");
+      fprintf(fptr, "%lf\n", (double)tof);
+      fclose(fptr);
   }
   
 

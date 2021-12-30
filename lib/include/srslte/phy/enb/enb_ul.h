@@ -92,6 +92,7 @@ SRSLTE_API int srslte_enb_ul_get_pusch_with_tof(srslte_enb_ul_t*    q,
                                                 srslte_ul_sf_cfg_t* ul_sf,
                                                 srslte_pusch_cfg_t* cfg,
                                                 srslte_pusch_res_t* res,
-                                                float*              tof);
+                                                float*              tof,
+                                                int                 save_to_file);
 
 #endif // SRSLTE_ENB_UL_H

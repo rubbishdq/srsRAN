@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "srslte/config.h"
 #include "srslte/phy/ch_estimation/chest_ul.h"
@@ -408,7 +410,8 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
                                             srslte_pusch_cfg_t*    cfg,
                                             cf_t*                  input,
                                             srslte_chest_ul_res_t* res,
-                                            float*                 tof)
+                                            float*                 tof,
+                                            int                    save_to_file)
 {
   if (!q->dmrs_signal_configured) {
     ERROR("Error must call srslte_chest_ul_set_cfg() before using the UL estimator\n");
@@ -425,13 +428,15 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
   int nrefs_sym = nof_prb * SRSLTE_NRE;
   int nrefs_sf  = nrefs_sym * SRSLTE_NOF_SLOTS_PER_SF;
 
+  int num_extension = 4;
+
   /* Get references from the input signal */
   srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
 
 
   { //do correlation and find the peak
     srslte_dft_plan_t ifft;
-    srslte_dft_plan_c(&ifft, nrefs_sf, SRSLTE_DFT_BACKWARD);
+    srslte_dft_plan_c(&ifft, num_extension*nrefs_sf, SRSLTE_DFT_BACKWARD);
 
 //    srslte_dft_plan_t fft;
 //    srslte_dft_plan_c(&fft, nrefs_sf, SRSLTE_DFT_FORWARD);
@@ -439,25 +444,25 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
     cf_t *t_buff = NULL;
 //    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
 //    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
-    t_buff    = srslte_vec_cf_malloc(3*nrefs_sf);
+    t_buff    = srslte_vec_cf_malloc(num_extension*nrefs_sf);
 
 //    srslte_dft_run_c(&fft, q->pilot_recv_signal, recv_buff);
 //    srslte_dft_run_c(&fft, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], dmrs_buff);
     
-    cf_t q_dmrs[3*nrefs_sf];
-    cf_t ref_dmrs[3*nrefs_sf];
+    cf_t q_dmrs[num_extension*nrefs_sf];
+    cf_t ref_dmrs[num_extension*nrefs_sf];
     
     cf_t *q_point = q->pilot_recv_signal;
     cf_t *ref_point = q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb];
     
-    for(int i = 0; i < 3 * nrefs_sf; i++) {
+    for(int i = 0; i < num_extension * nrefs_sf; i++) {
       if (i < nrefs_sf/2) {
         q_dmrs[i] = q_point[i];
         ref_dmrs[i] = ref_point[i];
       }
-      else if (i > 5*nrefs_sf/2-2) {
-        q_dmrs[i] = q_point[i-2*nrefs_sf];
-        ref_dmrs[i] = ref_point[i-2*nrefs_sf];
+      else if (i >= (2*num_extension-1)*nrefs_sf/2) {
+        q_dmrs[i] = q_point[i-(num_extension-1)*nrefs_sf];
+        ref_dmrs[i] = ref_point[i-(num_extension-1)*nrefs_sf];
       }
       else {
         q_dmrs[i] = 0;
@@ -468,12 +473,12 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
     cf_t *q_pointer = q_dmrs;
     cf_t *ref_pointer = ref_dmrs;
 
-    srslte_vec_prod_conj_ccc(q_pointer, ref_pointer, t_buff, 3*nrefs_sf);
+    srslte_vec_prod_conj_ccc(q_pointer, ref_pointer, t_buff, num_extension*nrefs_sf);
     
     srslte_dft_run_c(&ifft, t_buff, t_buff);
     int max_ind = 0;
     float max_v = 0;
-    for (int i = 0; i < nrefs_sf; ++i) {
+    for (int i = 0; i < num_extension*nrefs_sf; ++i) {
       if (cabsf(t_buff[i]) > max_v) {
         max_v = cabsf(t_buff[i]);
         max_ind = i;
@@ -482,8 +487,47 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
 
     //printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
     //printf("ToF:%lf us\n", 2*66.67*(float)max_ind/(float)nrefs_sf);
+    printf("???\n");
+    printf("max_ind: %d\n", max_ind);
+    printf("nrefs_sf: %d\n", nrefs_sf);
+    printf("???\n");
+
+    //write data to file
+    if (save_to_file)
+    {
+      srslte_dft_plan_t ifft_0;
+      srslte_dft_plan_c(&ifft_0, num_extension*nrefs_sf, SRSLTE_DFT_BACKWARD);
+      cf_t q_dmrs_0[num_extension*nrefs_sf];
+      cf_t ref_dmrs_0[num_extension*nrefs_sf];
+      srslte_dft_run_c(&ifft_0, q_dmrs, q_dmrs_0);
+      srslte_dft_run_c(&ifft_0, ref_dmrs, ref_dmrs_0);
+
+      char file_name[80] = "\0";
+      sprintf(file_name, "/home/dqs/data/data_%d.txt", max_ind);
+      if (access(file_name, F_OK) != 0)
+      {
+        FILE *fptr = fopen(file_name, "w+");
+        fprintf(fptr, "%d %d\n", num_extension*nrefs_sf, max_ind);
+        for (int i = 0; i < num_extension*nrefs_sf; i++)
+        {
+          fprintf(fptr, "%f %f %f %f %f %f %f %f %f %f\n", crealf(q_pointer[i]), cimagf(q_pointer[i]),
+                                                        crealf(q_dmrs_0[i]), cimagf(q_dmrs_0[i]),
+                                                        crealf(ref_pointer[i]), cimagf(ref_pointer[i]),
+                                                        crealf(ref_dmrs_0[i]), cimagf(ref_dmrs_0[i]),
+                                                        crealf(t_buff[i]), cimagf(t_buff[i]));
+        }
+        fclose(fptr);
+        printf("Data written to %s\n", file_name);
+      }
+    }
+
     if (tof != NULL) {
-      *tof = 2*66.67*(float)max_ind/(float)nrefs_sf;
+      if (max_ind < nrefs_sf / 2) {
+        *tof = 2*66.67*(float)max_ind/(float)(num_extension*nrefs_sf);
+      }
+      else {
+        *tof = 2*66.67*(float)(max_ind-nrefs_sf)/(float)(num_extension*nrefs_sf);
+      }
     }
   }
   // Use the known DMRS signal to compute Least-squares estimates
