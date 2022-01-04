@@ -384,9 +384,10 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
   // Run PUSCH decoder, only save to file while true_imsi is true
   ul_cfg.pusch.softbuffers.rx = ul_grant.softbuffer_rx;
   pusch_res.data              = ul_grant.data;
-  float tof;
+  float tof, mean_val, mean_2_val, max_val;
   if (pusch_res.data) {
-    if (srslte_enb_ul_get_pusch_with_tof(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof, (int)true_imsi)) {
+    //if (srslte_enb_ul_get_pusch_with_tof(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof, (int)true_imsi)) {
+    if (srslte_enb_ul_get_pusch_debug(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, &tof, &mean_val, &mean_2_val, &max_val, (int)true_imsi)) {
       Error("Decoding PUSCH for RNTI %x\n", rnti);
       return;
     }
@@ -412,7 +413,7 @@ void cc_worker::decode_pusch_rnti(stack_interface_phy_lte::ul_sched_grant_t& ul_
       printf("----------\n\n");
       // write data
       FILE *fptr = fopen("/home/dqs/data/tof.txt", "a+");
-      fprintf(fptr, "%lf\n", (double)tof);
+      fprintf(fptr, "%lf %lf %lf %lf\n", (double)tof, (double)mean_val, (double)mean_2_val, (double)max_val);
       fclose(fptr);
   }
   

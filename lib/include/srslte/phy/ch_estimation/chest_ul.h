@@ -113,6 +113,17 @@ SRSLTE_API int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
                                                       float*                 tof,
                                                       int                    save_to_file);
 
+SRSLTE_API int srslte_chest_ul_estimate_pusch_debug(srslte_chest_ul_t*     q,
+                                                      srslte_ul_sf_cfg_t*    sf,
+                                                      srslte_pusch_cfg_t*    cfg,
+                                                      cf_t*                  input,
+                                                      srslte_chest_ul_res_t* res,
+                                                      float*                 tof,
+                                                      float*                 mean_val,
+                                                      float*                 mean_2_val,
+                                                      float*                 max_val,
+                                                      int                    save_to_file);
+
 SRSLTE_API int srslte_chest_ul_estimate_pucch(srslte_chest_ul_t*     q,
                                               srslte_ul_sf_cfg_t*    sf,
                                               srslte_pucch_cfg_t*    cfg,

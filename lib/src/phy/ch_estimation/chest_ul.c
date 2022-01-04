@@ -428,7 +428,7 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
   int nrefs_sym = nof_prb * SRSLTE_NRE;
   int nrefs_sf  = nrefs_sym * SRSLTE_NOF_SLOTS_PER_SF;
 
-  int num_extension = 4;
+  int num_extension = 3;
 
   /* Get references from the input signal */
   srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
@@ -522,11 +522,11 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
     }
 
     if (tof != NULL) {
-      if (max_ind < nrefs_sf / 2) {
+      if (max_ind < num_extension * nrefs_sf / 2) {
         *tof = 2*66.67*(float)max_ind/(float)(num_extension*nrefs_sf);
       }
       else {
-        *tof = 2*66.67*(float)(max_ind-nrefs_sf)/(float)(num_extension*nrefs_sf);
+        *tof = 2*66.67*(float)(max_ind-num_extension*nrefs_sf)/(float)(num_extension*nrefs_sf);
       }
     }
   }
@@ -541,6 +541,163 @@ int srslte_chest_ul_estimate_pusch_with_tof(srslte_chest_ul_t*     q,
 
   return 0;
 }
+
+
+int srslte_chest_ul_estimate_pusch_debug(srslte_chest_ul_t*     q,
+                                            srslte_ul_sf_cfg_t*    sf,
+                                            srslte_pusch_cfg_t*    cfg,
+                                            cf_t*                  input,
+                                            srslte_chest_ul_res_t* res,
+                                            float*                 tof,
+                                            float*                 mean_val,
+                                            float*                 mean_2_val,
+                                            float*                 max_val,
+                                            int                    save_to_file)
+{
+  if (!q->dmrs_signal_configured) {
+    ERROR("Error must call srslte_chest_ul_set_cfg() before using the UL estimator\n");
+    return SRSLTE_ERROR;
+  }
+
+  uint32_t nof_prb = cfg->grant.L_prb;
+
+  if (!srslte_dft_precoding_valid_prb(nof_prb)) {
+    ERROR("Error invalid nof_prb=%d\n", nof_prb);
+    return SRSLTE_ERROR_INVALID_INPUTS;
+  }
+
+  int nrefs_sym = nof_prb * SRSLTE_NRE;
+  int nrefs_sf  = nrefs_sym * SRSLTE_NOF_SLOTS_PER_SF;
+
+  int num_extension = 3;
+
+  /* Get references from the input signal */
+  srslte_refsignal_dmrs_pusch_get(&q->dmrs_signal, cfg, input, q->pilot_recv_signal); //copy input to pilot_recv_signal
+
+
+  { //do correlation and find the peak
+    srslte_dft_plan_t ifft;
+    srslte_dft_plan_c(&ifft, num_extension*nrefs_sf, SRSLTE_DFT_BACKWARD);
+
+//    srslte_dft_plan_t fft;
+//    srslte_dft_plan_c(&fft, nrefs_sf, SRSLTE_DFT_FORWARD);
+//    *recv_buff = NULL, *dmrs_buff = NULL,
+    cf_t *t_buff = NULL;
+//    recv_buff = srslte_vec_cf_malloc(nrefs_sf);
+//    dmrs_buff = srslte_vec_cf_malloc(nrefs_sf);
+    t_buff    = srslte_vec_cf_malloc(num_extension*nrefs_sf);
+
+//    srslte_dft_run_c(&fft, q->pilot_recv_signal, recv_buff);
+//    srslte_dft_run_c(&fft, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], dmrs_buff);
+    
+    cf_t q_dmrs[num_extension*nrefs_sf];
+    cf_t ref_dmrs[num_extension*nrefs_sf];
+    
+    cf_t *q_point = q->pilot_recv_signal;
+    cf_t *ref_point = q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb];
+    
+    for(int i = 0; i < num_extension * nrefs_sf; i++) {
+      if (i < nrefs_sf/2) {
+        q_dmrs[i] = q_point[i];
+        ref_dmrs[i] = ref_point[i];
+      }
+      else if (i >= (2*num_extension-1)*nrefs_sf/2) {
+        q_dmrs[i] = q_point[i-(num_extension-1)*nrefs_sf];
+        ref_dmrs[i] = ref_point[i-(num_extension-1)*nrefs_sf];
+      }
+      else {
+        q_dmrs[i] = 0;
+        ref_dmrs[i] = 0;
+      }
+    }
+    // srslte_vec_prod_conj_ccc(q->pilot_recv_signal, q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb], t_buff, nrefs_sf);
+    cf_t *q_pointer = q_dmrs;
+    cf_t *ref_pointer = ref_dmrs;
+
+    srslte_vec_prod_conj_ccc(q_pointer, ref_pointer, t_buff, num_extension*nrefs_sf);
+    
+    srslte_dft_run_c(&ifft, t_buff, t_buff);
+    int max_ind = 0;
+    float max_v = 0, mean_v = 0, mean_2_v = 0;
+    for (int i = 0; i < num_extension*nrefs_sf; ++i) {
+      if (cabsf(t_buff[i]) > max_v) {
+        max_v = cabsf(t_buff[i]);
+        max_ind = i;
+      }
+      mean_v += cabsf(t_buff[i]);
+      mean_2_v += cabsf(t_buff[i])*cabsf(t_buff[i]);
+    }
+    mean_v /= (num_extension*nrefs_sf);
+    mean_2_v /= (num_extension*nrefs_sf);
+
+    //printf("prn:%d, max ind: %d, nrefs_sf:%d\n",cfg->grant.L_prb, max_ind, nrefs_sf);
+    //printf("ToF:%lf us\n", 2*66.67*(float)max_ind/(float)nrefs_sf);
+    printf("???\n");
+    printf("max_ind: %d\n", max_ind);
+    printf("nrefs_sf: %d\n", nrefs_sf);
+    printf("???\n");
+
+    //write data to file
+    if (save_to_file)
+    {
+      srslte_dft_plan_t ifft_0;
+      srslte_dft_plan_c(&ifft_0, num_extension*nrefs_sf, SRSLTE_DFT_BACKWARD);
+      cf_t q_dmrs_0[num_extension*nrefs_sf];
+      cf_t ref_dmrs_0[num_extension*nrefs_sf];
+      srslte_dft_run_c(&ifft_0, q_dmrs, q_dmrs_0);
+      srslte_dft_run_c(&ifft_0, ref_dmrs, ref_dmrs_0);
+
+      char file_name[80] = "\0";
+      sprintf(file_name, "/home/dqs/data/data_%d.txt", max_ind);
+      if (access(file_name, F_OK) != 0)
+      {
+        FILE *fptr = fopen(file_name, "w+");
+        fprintf(fptr, "%d %d\n", num_extension*nrefs_sf, max_ind);
+        for (int i = 0; i < num_extension*nrefs_sf; i++)
+        {
+          fprintf(fptr, "%f %f %f %f %f %f %f %f %f %f\n", crealf(q_pointer[i]), cimagf(q_pointer[i]),
+                                                        crealf(q_dmrs_0[i]), cimagf(q_dmrs_0[i]),
+                                                        crealf(ref_pointer[i]), cimagf(ref_pointer[i]),
+                                                        crealf(ref_dmrs_0[i]), cimagf(ref_dmrs_0[i]),
+                                                        crealf(t_buff[i]), cimagf(t_buff[i]));
+        }
+        fclose(fptr);
+        printf("Data written to %s\n", file_name);
+      }
+    }
+
+    if (tof != NULL) {
+      if (max_ind < num_extension * nrefs_sf / 2) {
+        *tof = 2*66.67*(float)max_ind/(float)(num_extension*nrefs_sf);
+      }
+      else {
+        *tof = 2*66.67*(float)(max_ind-num_extension*nrefs_sf)/(float)(num_extension*nrefs_sf);
+      }
+    }
+
+    if (mean_val != NULL) {
+      *mean_val = mean_v;
+    }
+    if (mean_2_val != NULL) {
+      *mean_2_val = mean_2_v;
+    }
+    if (max_val != NULL) {
+      *max_val = max_v;
+    }
+
+  }
+  // Use the known DMRS signal to compute Least-squares estimates
+  srslte_vec_prod_conj_ccc(q->pilot_recv_signal,
+                           q->dmrs_pregen.r[cfg->grant.n_dmrs][sf->tti % SRSLTE_NOF_SF_X_FRAME][nof_prb],
+                           q->pilot_estimates,
+                           nrefs_sf);
+
+  // Estimate
+  chest_ul_estimate(q, SRSLTE_NOF_SLOTS_PER_SF, nrefs_sym, 1, cfg->meas_ta_en, true, cfg->grant.n_prb, res);
+
+  return 0;
+}
+
 
 int srslte_chest_ul_estimate_pucch(srslte_chest_ul_t*     q,
                                    srslte_ul_sf_cfg_t*    sf,
